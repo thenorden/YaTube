@@ -33,3 +33,6 @@ class Comment(models.Model):
 
     def __str__(self):
         return self.text
+
+    class Meta:
+        ordering = ['-created']
