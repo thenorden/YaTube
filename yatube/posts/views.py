@@ -2,15 +2,14 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404
 from django.shortcuts import redirect
-from django.views.decorators.cache import cache_page
 
 from .models import Post, Group, User, Comment, Follow
 from .forms import PostForm, CommentForm
 
 
-# @cache_page(20, key_prefix='index_page')
 def index(request):
-    posts_list = Post.objects.order_by('-pub_date').all()
+    posts_list = Post.objects.order_by('-pub_date').select_related('author', 'group').prefetch_related(
+        'comments')
     paginator = Paginator(posts_list, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
@@ -23,7 +22,8 @@ def index(request):
 
 def group_posts(request, slug):
     group = get_object_or_404(Group, slug=slug)
-    posts_group = Post.objects.filter(group=group).order_by('-pub_date')
+    posts_group = Post.objects.filter(group=group).order_by('-pub_date').select_related(
+        'author', 'group').prefetch_related('comments')
     paginator = Paginator(posts_group, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
@@ -64,7 +64,7 @@ def profile(request, username):
 def post_view(request, username, post_id):
     profile = get_object_or_404(User, username=username)
     post = get_object_or_404(Post, id=post_id)
-    comments = Comment.objects.filter(post__id=post_id, author__username=username)
+    comments = Comment.objects.filter(post__id=post_id)
     form = CommentForm()
     return render(request, 'post.html', {'profile': profile, 'post': post, 'comments': comments, 'form': form})
 
@@ -110,7 +110,8 @@ def add_comment(request, username, post_id):
 
 @login_required
 def follow_index(request):
-    posts = Post.objects.filter(author__following__user=request.user).order_by('-pub_date')
+    posts = Post.objects.filter(author__following__user=request.user).order_by('-pub_date').select_related(
+        'author', 'group').prefetch_related('comments')
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
