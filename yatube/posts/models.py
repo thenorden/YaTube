@@ -36,3 +36,11 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ['-created']
+
+
+class Follow(models.Model):
+    user = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
+    author = models.ForeignKey(User, related_name='following', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user} подписан на {self.author}'

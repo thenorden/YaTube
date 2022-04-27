@@ -1,7 +1,7 @@
 import tempfile
 
 from django.test import TestCase, Client, override_settings
-
+from django.core.cache import cache
 from django.urls import reverse
 
 from .models import User, Post, Group
@@ -9,6 +9,7 @@ from .models import User, Post, Group
 
 class InitTestMixin(TestCase):
     def setUp(self):
+        cache.clear()
         username = "sarah"
         email = "connor.s@skynet.com"
         password = "12345"
@@ -126,3 +127,56 @@ class ImageTest(InitTestMixin, TestCase):
         kwargs = {'username': self.user.username}
         response = self.client.get(reverse('profile', kwargs=kwargs))
         self.assertEqual(len(response.context['posts']), 1)
+
+
+class CacheTest(InitTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = Post.objects.create(text='init_text', author=self.user)
+
+    def test_index_page_cache(self):
+        with self.assertNumQueries(5):
+            response = self.anonim_user.get(reverse('index'))
+            self.assertEqual(response.status_code, 200)
+            response = self.anonim_user.get(reverse('index'))
+            self.assertEqual(response.status_code, 200)
+
+
+class FollowTest(InitTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.user_second = User.objects.create_user(username='folker', email='folker@gmail.com', password='12345')
+        self.post = Post.objects.create(text='init_text', author=self.user_second)
+
+    def test_follow_auth(self):
+        self.client.get(reverse('profile_follow', kwargs={'username': self.user_second.username}))
+        response = self.client.get(reverse('profile', kwargs={'username': self.user_second.username}))
+        self.assertEqual(response.context['following_count'], 1)
+
+    def test_follow_page(self):
+        self.client.get(reverse('profile_follow', kwargs={'username': self.user_second.username}))
+        response = self.client.get(reverse('follow_index'))
+        self.assertContains(response, self.post.text)
+
+    def test_not_follow_page(self):
+        response = self.client.get(reverse('follow_index'))
+        self.assertNotContains(response, self.post.text)
+
+
+class CommentTest(InitTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = Post.objects.create(text='init_text', author=self.user)
+        self.kwargs = {'username': self.user.username, 'post_id': self.post.id}
+        self.data = {'text': 'best comment'}
+
+    def test_auth_add_comment(self):
+        self.client.post(reverse('add_comment', kwargs=self.kwargs), data=self.data)
+        response = self.client.get(reverse('post', kwargs={'username': self.user.username, 'post_id': self.post.id}))
+        self.assertContains(response, 'best comment')
+
+    def test_anonim_add_comment(self):
+        self.anonim_user.post(reverse('add_comment', kwargs=self.kwargs), data=self.data)
+        response = self.client.get(reverse('post', kwargs={'username': self.user.username, 'post_id': self.post.id}))
+        self.assertNotContains(response, 'best comment')
+
