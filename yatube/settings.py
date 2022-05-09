@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 
     'sorl.thumbnail',
     'debug_toolbar',
+    'rest_framework.authtoken',
 ]
 
 MIDDLEWARE = [

@@ -151,7 +151,7 @@ class FollowTest(InitTestMixin, TestCase):
     def test_follow_auth(self):
         self.client.get(reverse('profile_follow', kwargs={'username': self.user_second.username}))
         response = self.client.get(reverse('profile', kwargs={'username': self.user_second.username}))
-        self.assertEqual(response.context['following_count'], 1)
+        self.assertEqual(len(response.context['posts']), 1)
 
     def test_follow_page(self):
         self.client.get(reverse('profile_follow', kwargs={'username': self.user_second.username}))
